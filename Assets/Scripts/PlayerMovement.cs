@@ -1,4 +1,5 @@
 using UnityEngine;
+using System;
 
 public class PlayerMovement : MonoBehaviour
 {
@@ -7,9 +8,12 @@ public class PlayerMovement : MonoBehaviour
     public float jumpForce = 5f;       // Jumping force
 
     public Transform playerBody;       // Reference to the player body (root object)
+    public Animator animator;          // Reference to player animator
+    //public Camera playerCamera;        // Reference to player camera
 
-    public Animator animator; // Reference to player animator
-    // public Transform playerCamera;     // Reference to the camera (child object)
+    public static event Action OnFootstep;  // Event to broadcast footsteps
+    public static event Action OnStopFootstep; // Event to broadcast stopping
+
     public LayerMask groundMask;       // Layer mask for ground detection
     public float groundDistance = 0.4f; // Distance to check for the ground
 
@@ -25,6 +29,7 @@ public class PlayerMovement : MonoBehaviour
 
     private bool isIdle;
     private bool isWalking;
+    private bool isWalkingBackwards;
 
     void Start()
     {
@@ -41,12 +46,24 @@ public class PlayerMovement : MonoBehaviour
         HandleInput();
         HandleMouseLook();
         UpdateAnimator();
+        HandleSound();
     }
 
     void FixedUpdate()
     {
         // Handle physics-based movement and jumping in FixedUpdate
         HandleMovement();
+    }
+
+    void HandleSound(){
+        if ((isWalking || isWalkingBackwards) && !isIdle){
+            // Broadcast the footstep event to any subscribers
+            OnFootstep?.Invoke();
+        }
+        else if (isIdle){
+            OnStopFootstep?.Invoke();
+        }
+
     }
 
     void HandleInput()
@@ -78,41 +95,53 @@ public class PlayerMovement : MonoBehaviour
         // Rotate the camera vertically (X-axis)
         xRotation -= mouseY;
         xRotation = Mathf.Clamp(xRotation, -90f, 90f); // Prevent camera from flipping
-        //playerCamera.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
+        //playerCamera.transform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
     }
+
     void HandleMovement()
+    {
+        // Check if grounded using a sphere overlap (ground detection)
+        isGrounded = Physics.CheckSphere(groundCheck.position, groundDistance, groundMask);
+
+        // Apply movement based on input collected in Update
+        Vector3 move = transform.right * moveX + transform.forward * moveZ;
+        rb.velocity = new Vector3(move.x * speed, rb.velocity.y, move.z * speed);
+
+        // Apply jump force if jumpInput is true
+        if (jumpInput && isGrounded)
         {
-            // Check if grounded using a sphere overlap (ground detection)
-            isGrounded = Physics.CheckSphere(groundCheck.position, groundDistance, groundMask);
-
-            // Apply movement based on input collected in Update
-            Vector3 move = transform.right * moveX + transform.forward * moveZ;
-            rb.velocity = new Vector3(move.x * speed, rb.velocity.y, move.z * speed);
-
-            // Apply jump force if jumpInput is true
-            if (jumpInput && isGrounded)
-            {
-                rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
-            }
+            rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
         }
+    }
 
-        void UpdateAnimator()
+    void UpdateAnimator()
+    {
+        // Check if player is walking or idle based on input
+        if (moveX != 0 || moveZ != 0)
         {
-            // Check if player is walking or idle based on input
-            if (moveX != 0 || moveZ != 0)
+            if (moveZ < 0)
             {
-                isWalking = true;
-                Debug.Log("Walking: " + isWalking);
+                isWalkingBackwards = true;
+                isWalking = false;
                 isIdle = false;
             }
             else
             {
-                isWalking = false;
-                isIdle = true;
+                isWalkingBackwards = false;
+                isWalking = true;
+                isIdle = false;
             }
-
-            // Set the flags in the Animator
-            animator.SetBool("isWalking", isWalking);
-            animator.SetBool("isIdle", isIdle);
         }
+        else
+        {
+            isWalking = false;
+            isIdle = true;
+            isWalkingBackwards = false;
+        }
+
+        // Set the flags in the Animator
+        animator.SetBool("isWalking", isWalking);
+        animator.SetBool("isIdle", isIdle);
+        animator.SetBool("isWalkingBackwards", isWalkingBackwards); // Add this to trigger backward walking animation
     }
+}
