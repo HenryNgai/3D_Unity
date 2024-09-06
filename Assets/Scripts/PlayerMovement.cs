@@ -7,6 +7,8 @@ public class PlayerMovement : MonoBehaviour
     public float jumpForce = 5f;       // Jumping force
 
     public Transform playerBody;       // Reference to the player body (root object)
+
+    public Animator animator; // Reference to player animator
     // public Transform playerCamera;     // Reference to the camera (child object)
     public LayerMask groundMask;       // Layer mask for ground detection
     public float groundDistance = 0.4f; // Distance to check for the ground
@@ -21,9 +23,13 @@ public class PlayerMovement : MonoBehaviour
     private float moveZ;
     private bool jumpInput;
 
+    private bool isIdle;
+    private bool isWalking;
+
     void Start()
     {
         rb = GetComponent<Rigidbody>();
+        animator = GetComponent<Animator>();
 
         // Lock the cursor in the game window
         Cursor.lockState = CursorLockMode.Locked;
@@ -34,6 +40,7 @@ public class PlayerMovement : MonoBehaviour
         // Handle input and mouse look in Update
         HandleInput();
         HandleMouseLook();
+        UpdateAnimator();
     }
 
     void FixedUpdate()
@@ -73,22 +80,39 @@ public class PlayerMovement : MonoBehaviour
         xRotation = Mathf.Clamp(xRotation, -90f, 90f); // Prevent camera from flipping
         //playerCamera.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
     }
-
     void HandleMovement()
-    {
-        // Check if grounded using a sphere overlap (ground detection)
-        isGrounded = Physics.CheckSphere(groundCheck.position, groundDistance, groundMask);
-
-        // Apply movement based on input collected in Update
-        Vector3 move = transform.right * moveX + transform.forward * moveZ;
-        rb.velocity = new Vector3(move.x * speed, rb.velocity.y, move.z * speed);
-
-        // Apply jump force if jumpInput is true
-        if (jumpInput && isGrounded)
         {
-            rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
+            // Check if grounded using a sphere overlap (ground detection)
+            isGrounded = Physics.CheckSphere(groundCheck.position, groundDistance, groundMask);
+
+            // Apply movement based on input collected in Update
+            Vector3 move = transform.right * moveX + transform.forward * moveZ;
+            rb.velocity = new Vector3(move.x * speed, rb.velocity.y, move.z * speed);
+
+            // Apply jump force if jumpInput is true
+            if (jumpInput && isGrounded)
+            {
+                rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
+            }
+        }
+
+        void UpdateAnimator()
+        {
+            // Check if player is walking or idle based on input
+            if (moveX != 0 || moveZ != 0)
+            {
+                isWalking = true;
+                Debug.Log("Walking: " + isWalking);
+                isIdle = false;
+            }
+            else
+            {
+                isWalking = false;
+                isIdle = true;
+            }
+
+            // Set the flags in the Animator
+            animator.SetBool("isWalking", isWalking);
+            animator.SetBool("isIdle", isIdle);
         }
     }
-
-
-}
