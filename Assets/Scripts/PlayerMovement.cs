@@ -1,44 +1,94 @@
 using UnityEngine;
 
-public class PlayerController : MonoBehaviour
+public class PlayerMovement : MonoBehaviour
 {
-    public float moveSpeed = 5f; // Speed of movement
+    public float speed = 6f;           // Walking speed
+    public float mouseSensitivity = 200f; // Sensitivity for mouse movement
+    public float jumpForce = 5f;       // Jumping force
 
-    private bool isFacingRight = true; // Track which direction the player is facing
+    public Transform playerBody;       // Reference to the player body (root object)
+    // public Transform playerCamera;     // Reference to the camera (child object)
+    public LayerMask groundMask;       // Layer mask for ground detection
+    public float groundDistance = 0.4f; // Distance to check for the ground
+
+    private Rigidbody rb;
+    private float xRotation = 0f;      // Rotation of the camera on the X-axis
+    private bool isGrounded;           // Ground check
+    public Transform groundCheck;      // Empty gameObject under player feet for checking ground
+
+    // Store input values for movement
+    private float moveX;
+    private float moveZ;
+    private bool jumpInput;
+
+    void Start()
+    {
+        rb = GetComponent<Rigidbody>();
+
+        // Lock the cursor in the game window
+        Cursor.lockState = CursorLockMode.Locked;
+    }
 
     void Update()
     {
-        // Get input for movement along the X and Z axes
-        float moveX = Input.GetAxis("Horizontal"); // Left/Right or A/D for X-axis movement
-        float moveZ = Input.GetAxis("Vertical");   // Forward/Back or W/S for Z-axis movement
-
-        // Create a movement vector (moving only along the X and Z axis)
-        Vector3 move = new Vector3(moveX, 0, moveZ);
-
-        // Move the player by the movement vector times the speed and time delta
-        transform.Translate(move * moveSpeed * Time.deltaTime, Space.World);
-
-        // Flip the player when moving left or right
-        if (moveX > 0 && !isFacingRight)
-        {
-            // Moving right and currently facing left, so flip
-            Flip();
-        }
-        else if (moveX < 0 && isFacingRight)
-        {
-            // Moving left and currently facing right, so flip
-            Flip();
-        }
+        // Handle input and mouse look in Update
+        HandleInput();
+        HandleMouseLook();
     }
 
-    // Flip the player by scaling the X-axis
-    void Flip()
+    void FixedUpdate()
     {
-        isFacingRight = !isFacingRight; // Toggle the direction the player is facing
-
-        // Flip the player's local scale on the X-axis
-        Vector3 playerScale = transform.localScale;
-        playerScale.x *= -1;
-        transform.localScale = playerScale;
+        // Handle physics-based movement and jumping in FixedUpdate
+        HandleMovement();
     }
+
+    void HandleInput()
+    {
+        // Get movement input (WASD)
+        moveX = Input.GetAxis("Horizontal");
+        moveZ = Input.GetAxis("Vertical");
+
+        // Jumping input
+        if (Input.GetButtonDown("Jump") && isGrounded)
+        {
+            jumpInput = true;
+        }
+        else
+        {
+            jumpInput = false;
+        }
+    }
+
+    void HandleMouseLook()
+    {
+        // Get mouse input for look direction
+        float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity * Time.deltaTime;
+        float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity * Time.deltaTime;
+
+        // Rotate the player horizontally (Y-axis)
+        playerBody.Rotate(Vector3.up * mouseX);
+
+        // Rotate the camera vertically (X-axis)
+        xRotation -= mouseY;
+        xRotation = Mathf.Clamp(xRotation, -90f, 90f); // Prevent camera from flipping
+        //playerCamera.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
+    }
+
+    void HandleMovement()
+    {
+        // Check if grounded using a sphere overlap (ground detection)
+        isGrounded = Physics.CheckSphere(groundCheck.position, groundDistance, groundMask);
+
+        // Apply movement based on input collected in Update
+        Vector3 move = transform.right * moveX + transform.forward * moveZ;
+        rb.velocity = new Vector3(move.x * speed, rb.velocity.y, move.z * speed);
+
+        // Apply jump force if jumpInput is true
+        if (jumpInput && isGrounded)
+        {
+            rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
+        }
+    }
+
+
 }
