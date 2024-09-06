@@ -30,6 +30,9 @@ public class PlayerMovement : MonoBehaviour
     private bool isIdle;
     private bool isWalking;
     private bool isWalkingBackwards;
+    
+    private bool isSlashing;           // Flag for slashing state
+    private bool canSlash = true;      // Flag to ensure slashing only happens once per press
 
     void Start()
     {
@@ -55,15 +58,17 @@ public class PlayerMovement : MonoBehaviour
         HandleMovement();
     }
 
-    void HandleSound(){
-        if ((isWalking || isWalkingBackwards) && !isIdle){
+    void HandleSound()
+    {
+        if ((isWalking || isWalkingBackwards) && !isIdle)
+        {
             // Broadcast the footstep event to any subscribers
             OnFootstep?.Invoke();
         }
-        else if (isIdle){
+        else if (isIdle)
+        {
             OnStopFootstep?.Invoke();
         }
-
     }
 
     void HandleInput()
@@ -80,6 +85,20 @@ public class PlayerMovement : MonoBehaviour
         else
         {
             jumpInput = false;
+        }
+
+        // Slashing input - trigger slashing only once when pressing space
+        if (Input.GetMouseButtonDown(0) && canSlash)
+        {
+            isSlashing = true;
+            canSlash = false; // Disable continuous slashing while the key is held
+            Debug.Log("Pressing Left Click - canSlash:" + canSlash);
+        }
+
+        if (Input.GetKeyUp(KeyCode.Space))
+        {
+            // Re-enable slashing when space is released
+            canSlash = true;
         }
     }
 
@@ -143,5 +162,12 @@ public class PlayerMovement : MonoBehaviour
         animator.SetBool("isWalking", isWalking);
         animator.SetBool("isIdle", isIdle);
         animator.SetBool("isWalkingBackwards", isWalkingBackwards); // Add this to trigger backward walking animation
+
+        // Handle slashing animation
+        if (isSlashing)
+        {
+            animator.SetTrigger("slash");  // Set trigger for slashing animation
+            isSlashing = false;            // Reset slashing flag after triggering animation
+        }
     }
 }
