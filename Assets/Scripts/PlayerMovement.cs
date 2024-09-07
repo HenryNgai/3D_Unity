@@ -27,6 +27,8 @@ public class PlayerMovement : MonoBehaviour
     void Start()
     {
         rb = GetComponent<Rigidbody>();
+        rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
+        
         animator = GetComponent<Animator>();
 
         // Lock the cursor in the middle of the screen
@@ -66,10 +68,9 @@ public class PlayerMovement : MonoBehaviour
 
         Vector3 move = transform.right * moveX + transform.forward * moveZ;
         
-        // Move the player by modifying the velocity of the Rigidbody
-        Vector3 velocity = move * speed;
-        velocity.y = rb.velocity.y; // Preserve vertical velocity
-        rb.velocity = velocity;
+        // Move the player using MovePosition instead of directly modifying velocity
+        Vector3 targetPosition = rb.position + move * (isGrounded ? speed : speed * 0.5f) * Time.deltaTime;  // Move slower if not grounded
+        rb.MovePosition(targetPosition);
 
     }
 
