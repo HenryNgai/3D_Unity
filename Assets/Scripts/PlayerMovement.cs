@@ -5,7 +5,7 @@ public class PlayerMovement : MonoBehaviour
     // Movement variables
     public float speed = 3f; 
     public float jumpForce = 5f;
-    public bool isJumping = false;
+    public bool isRunning = false;
 
     // Ground check variables
     public bool isGrounded;
@@ -53,6 +53,16 @@ public class PlayerMovement : MonoBehaviour
         // Get input for movement
         float moveX = Input.GetAxis("Horizontal");
         float moveZ = Input.GetAxis("Vertical");
+        
+        // Calculating Running
+        if (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)){
+            isRunning = true;
+            speed = 6f;
+        }
+        else{
+            isRunning = false;
+            speed = 3f;
+        }
 
         Vector3 move = transform.right * moveX + transform.forward * moveZ;
         
@@ -61,15 +71,6 @@ public class PlayerMovement : MonoBehaviour
         velocity.y = rb.velocity.y; // Preserve vertical velocity
         rb.velocity = velocity;
 
-        // Jumping
-        if (Input.GetButtonDown("Jump") && isGrounded)
-        {   isJumping = true;
-            rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
-        }
-        else if (isGrounded)
-        {
-            isJumping = false;
-        }
     }
 
     void HandleMouseLook()
@@ -109,9 +110,7 @@ public class PlayerMovement : MonoBehaviour
             animator.SetBool("isWalkingBackward", false);
         }
 
-        
-        // Animate jumping
-        animator.SetBool("isJumping", isJumping);
-        Debug.Log("Setting isJumping: " + isJumping);
+        // Check Running
+        animator.SetBool("isRunning", isRunning);
     }
 }
