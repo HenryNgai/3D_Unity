@@ -3,9 +3,14 @@ using UnityEngine;
 public class PlayerMovement : MonoBehaviour
 {
     // Movement variables
-    public float speed = 3f; 
+    public float speed  = 3f; 
+    public float runSpeed = 6f;
+    public float walkSpeed = 3f;
     public float jumpForce = 5f;
     public bool isRunning = false;
+
+    // Attack variables
+    private bool isAttacking = false;
 
     // Ground check variables
     public bool isGrounded;
@@ -23,6 +28,7 @@ public class PlayerMovement : MonoBehaviour
     
     // Animation Variables
     private Animator animator;
+    private AnimatorStateInfo stateInfo;
 
     void Start()
     {
@@ -36,11 +42,14 @@ public class PlayerMovement : MonoBehaviour
     }
 
     void Update()
-    {
+    {  
         // Handle mouse input for rotating the camera and player body
         HandleMouseLook();
 
-        // Handle player movement
+        // Handles attacks
+        HandleAttack();
+
+        // Handles Movement
         HandleMovement();
 
         // Handle animation updates
@@ -49,28 +58,38 @@ public class PlayerMovement : MonoBehaviour
 
     void HandleMovement()
     {
-        // Check if the player is grounded
-        isGrounded = Physics.CheckSphere(groundCheck.position, groundDistance, groundMask);
-
-        // Get input for movement
-        float moveX = Input.GetAxis("Horizontal");
-        float moveZ = Input.GetAxis("Vertical");
-        
-        // Calculating Running
-        if (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)){
-            isRunning = true;
-            speed = 6f;
+        // Get latest animation state
+        stateInfo = animator.GetCurrentAnimatorStateInfo(0);
+        if (stateInfo.IsName("attack"))
+        {
+            Debug.Log("Skipping movement since we're still in attack animation");
         }
-        else{
-            isRunning = false;
-            speed = 3f;
+        else
+        {
+            Debug.Log("Not attacking. Able to move character");
+            // Check if the player is grounded
+            isGrounded = Physics.CheckSphere(groundCheck.position, groundDistance, groundMask);
+
+            // Get input for movement
+            float moveX = Input.GetAxis("Horizontal");
+            float moveZ = Input.GetAxis("Vertical");
+            
+            // Calculating Running
+            if (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift))
+            {
+                isRunning = true;
+            }
+            else{
+                isRunning = false;
+            }
+            speed = isRunning ? runSpeed : walkSpeed;
+
+            // Move the player using MovePosition instead of directly modifying velocity
+            Vector3 move = transform.right * moveX + transform.forward * moveZ;
+            Vector3 targetPosition = rb.position + move * (isGrounded ? speed : speed * 0.5f) * Time.deltaTime;  // Move slower if not grounded
+            rb.MovePosition(targetPosition);
         }
 
-        Vector3 move = transform.right * moveX + transform.forward * moveZ;
-        
-        // Move the player using MovePosition instead of directly modifying velocity
-        Vector3 targetPosition = rb.position + move * (isGrounded ? speed : speed * 0.5f) * Time.deltaTime;  // Move slower if not grounded
-        rb.MovePosition(targetPosition);
 
     }
 
@@ -95,17 +114,17 @@ public class PlayerMovement : MonoBehaviour
         float moveZ = Input.GetAxis("Vertical");
 
         // Animate z (forward and backwards) correctly
-        if (moveZ > 0)
+        if (moveZ > 0) // Moving Forward
         {
             animator.SetBool("isWalkingForward", true);
             animator.SetBool("isWalkingBackward", false);
         }
-        else if (moveZ < 0)
+        else if (moveZ < 0) // Moving Backwards
         {
             animator.SetBool("isWalkingForward", false);
             animator.SetBool("isWalkingBackward", true);
         }
-        else
+        else // Idle
         {
             animator.SetBool("isWalkingForward", false);
             animator.SetBool("isWalkingBackward", false);
@@ -113,5 +132,35 @@ public class PlayerMovement : MonoBehaviour
 
         // Check Running
         animator.SetBool("isRunning", isRunning);
+    }
+
+
+    void HandleAttack()
+    {   
+        if (Input.GetMouseButtonDown(0) && !isAttacking)
+        {
+            Attack();
+        }
+        HandleAttackCompletion();
+
+    }
+    void Attack(){
+        animator.SetTrigger("attack");
+        isAttacking = true;
+        Debug.Log("Attack triggered");
+    }
+
+    void HandleAttackCompletion(){
+        // Check if attack anim is still playing
+        stateInfo = animator.GetCurrentAnimatorStateInfo(0);
+
+        // Annimation is no longer attacking
+        if (isAttacking && !stateInfo.IsName("attack"))
+        {   //Reset to allow for attack again
+            isAttacking = false;
+            Debug.Log("Able to attack again");
+        }
+
+
     }
 }
