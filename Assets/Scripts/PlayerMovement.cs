@@ -1,173 +1,117 @@
 using UnityEngine;
-using System;
 
 public class PlayerMovement : MonoBehaviour
 {
-    public float speed = 6f;           // Walking speed
-    public float mouseSensitivity = 200f; // Sensitivity for mouse movement
-    public float jumpForce = 5f;       // Jumping force
+    // Movement variables
+    public float speed = 3f; 
+    public float jumpForce = 5f;
+    public bool isJumping = false;
 
-    public Transform playerBody;       // Reference to the player body (root object)
-    public Animator animator;          // Reference to player animator
-    //public Camera playerCamera;        // Reference to player camera
+    // Ground check variables
+    public bool isGrounded;
+    public Transform groundCheck;
+    public float groundDistance = 0.4f;
+    public LayerMask groundMask;
 
-    public static event Action OnFootstep;  // Event to broadcast footsteps
-    public static event Action OnStopFootstep; // Event to broadcast stopping
+    // Camera and mouse look variables
+    public float mouseSensitivity = 200f;
+    public Transform playerBody;       // Reference to player's body for rotating
+    private float xRotation = 0f;
 
-    public LayerMask groundMask;       // Layer mask for ground detection
-    public float groundDistance = 0.4f; // Distance to check for the ground
-
+    // Physics Variables
     private Rigidbody rb;
-    private float xRotation = 0f;      // Rotation of the camera on the X-axis
-    private bool isGrounded;           // Ground check
-    public Transform groundCheck;      // Empty gameObject under player feet for checking ground
-
-    // Store input values for movement
-    private float moveX;
-    private float moveZ;
-    private bool jumpInput;
-
-    private bool isIdle;
-    private bool isWalking;
-    private bool isWalkingBackwards;
     
-    private bool isSlashing;           // Flag for slashing state
-    private bool canSlash = true;      // Flag to ensure slashing only happens once per press
+    // Animation Variables
+    private Animator animator;
 
     void Start()
     {
         rb = GetComponent<Rigidbody>();
         animator = GetComponent<Animator>();
 
-        // Lock the cursor in the game window
+        // Lock the cursor in the middle of the screen
         Cursor.lockState = CursorLockMode.Locked;
     }
 
     void Update()
     {
-        // Handle input and mouse look in Update
-        HandleInput();
+        // Handle mouse input for rotating the camera and player body
         HandleMouseLook();
-        UpdateAnimator();
-        HandleSound();
-    }
 
-    void FixedUpdate()
-    {
-        // Handle physics-based movement and jumping in FixedUpdate
+        // Handle player movement
         HandleMovement();
+
+        // Handle animation updates
+        HandleAnimations();
     }
 
-    void HandleSound()
+    void HandleMovement()
     {
-        if ((isWalking || isWalkingBackwards) && !isIdle)
-        {
-            // Broadcast the footstep event to any subscribers
-            OnFootstep?.Invoke();
-        }
-        else if (isIdle)
-        {
-            OnStopFootstep?.Invoke();
-        }
-    }
+        // Check if the player is grounded
+        isGrounded = Physics.CheckSphere(groundCheck.position, groundDistance, groundMask);
 
-    void HandleInput()
-    {
-        // Get movement input (WASD)
-        moveX = Input.GetAxis("Horizontal");
-        moveZ = Input.GetAxis("Vertical");
+        // Get input for movement
+        float moveX = Input.GetAxis("Horizontal");
+        float moveZ = Input.GetAxis("Vertical");
 
-        // Jumping input
+        Vector3 move = transform.right * moveX + transform.forward * moveZ;
+        
+        // Move the player by modifying the velocity of the Rigidbody
+        Vector3 velocity = move * speed;
+        velocity.y = rb.velocity.y; // Preserve vertical velocity
+        rb.velocity = velocity;
+
+        // Jumping
         if (Input.GetButtonDown("Jump") && isGrounded)
-        {
-            jumpInput = true;
+        {   isJumping = true;
+            rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
         }
-        else
+        else if (isGrounded)
         {
-            jumpInput = false;
-        }
-
-        // Slashing input - trigger slashing only once when pressing space
-        if (Input.GetMouseButtonDown(0) && canSlash)
-        {
-            isSlashing = true;
-            canSlash = false; // Disable continuous slashing while the key is held
-            Debug.Log("Pressing Left Click - canSlash:" + canSlash);
-        }
-
-        if (Input.GetKeyUp(KeyCode.Space))
-        {
-            // Re-enable slashing when space is released
-            canSlash = true;
+            isJumping = false;
         }
     }
 
     void HandleMouseLook()
     {
-        // Get mouse input for look direction
+        // Get mouse input
         float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity * Time.deltaTime;
         float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity * Time.deltaTime;
 
-        // Rotate the player horizontally (Y-axis)
-        playerBody.Rotate(Vector3.up * mouseX);
-
-        // Rotate the camera vertically (X-axis)
+        // Rotate the head up and down (pitch)
         xRotation -= mouseY;
-        xRotation = Mathf.Clamp(xRotation, -90f, 90f); // Prevent camera from flipping
-        //playerCamera.transform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
+        xRotation = Mathf.Clamp(xRotation, -45f, 45f);  // Clamp rotation to avoid unnatural angles
+
+        // Rotate the player body left and right (yaw)
+        playerBody.Rotate(Vector3.up * mouseX);
     }
 
-    void HandleMovement()
+    void HandleAnimations()
     {
-        // Check if grounded using a sphere overlap (ground detection)
-        isGrounded = Physics.CheckSphere(groundCheck.position, groundDistance, groundMask);
+        // Get input for movement
+        float moveX = Input.GetAxis("Horizontal");
+        float moveZ = Input.GetAxis("Vertical");
 
-        // Apply movement based on input collected in Update
-        Vector3 move = transform.right * moveX + transform.forward * moveZ;
-        rb.velocity = new Vector3(move.x * speed, rb.velocity.y, move.z * speed);
-
-        // Apply jump force if jumpInput is true
-        if (jumpInput && isGrounded)
+        // Animate z (forward and backwards) correctly
+        if (moveZ > 0)
         {
-            rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
+            animator.SetBool("isWalkingForward", true);
+            animator.SetBool("isWalkingBackward", false);
         }
-    }
-
-    void UpdateAnimator()
-    {
-        // Check if player is walking or idle based on input
-        if (moveX != 0 || moveZ != 0)
+        else if (moveZ < 0)
         {
-            if (moveZ < 0)
-            {
-                isWalkingBackwards = true;
-                isWalking = false;
-                isIdle = false;
-            }
-            else
-            {
-                isWalkingBackwards = false;
-                isWalking = true;
-                isIdle = false;
-            }
+            animator.SetBool("isWalkingForward", false);
+            animator.SetBool("isWalkingBackward", true);
         }
         else
         {
-            isWalking = false;
-            isIdle = true;
-            isWalkingBackwards = false;
+            animator.SetBool("isWalkingForward", false);
+            animator.SetBool("isWalkingBackward", false);
         }
 
-        // Set the flags in the Animator
-        animator.SetBool("isWalking", isWalking);
-        animator.SetBool("isIdle", isIdle);
-        animator.SetBool("isWalkingBackwards", isWalkingBackwards); // Add this to trigger backward walking animation
-
-        // Handle slashing animation
-        if (isSlashing)
-        {
-            animator.SetTrigger("slash");  // Set trigger for slashing animation
-            isSlashing = false;            // Reset slashing flag after triggering animation
-        }
+        
+        // Animate jumping
+        animator.SetBool("isJumping", isJumping);
+        Debug.Log("Setting isJumping: " + isJumping);
     }
 }
