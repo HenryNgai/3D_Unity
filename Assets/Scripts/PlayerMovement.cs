@@ -7,24 +7,29 @@ public class RPGPlayerMovement : MonoBehaviour
     public float walkSpeed = 3f;
     public float runSpeed = 6f;
     public float jumpForce = 7f;
+    private float currentSpeed;
 
     // Ground check settings
     public Transform groundCheck;
     public float groundDistance = 0.4f;
     public LayerMask groundMask;
+    private bool isGrounded;
 
     // Camera and player control settings
     public float mouseSensitivity = 100f;
     public Transform cameraTransform;  // Assign the camera's transform to this in the Inspector
 
+    // Rigid body settings
     private Rigidbody rb;
-    private bool isGrounded;
-    private float currentSpeed;
     private float xRotation = 0f;
+
+    //Animator settings
+    private Animator animator;
 
     void Start()
     {
         rb = GetComponent<Rigidbody>();
+        animator = GetComponent<Animator>();
         rb.freezeRotation = true; // Prevent the Rigidbody from rotating
 
         // Lock the cursor to the center of the screen
@@ -41,6 +46,9 @@ public class RPGPlayerMovement : MonoBehaviour
 
         // Handle jumping input
         HandleJump();
+
+        //Update Animations
+        UpdateAnimations();
     }
 
     void HandleMovement()
@@ -49,8 +57,8 @@ public class RPGPlayerMovement : MonoBehaviour
         isGrounded = Physics.CheckSphere(groundCheck.position, groundDistance, groundMask);
 
         // Get movement input
-        float moveX = Input.GetAxis("Horizontal");
-        float moveZ = Input.GetAxis("Vertical");
+        float moveX = Input.GetAxisRaw("Horizontal");
+        float moveZ = Input.GetAxisRaw("Vertical");
 
         // Determine if the player is running or walking
         if (Input.GetKey(KeyCode.LeftShift))
@@ -94,5 +102,48 @@ public class RPGPlayerMovement : MonoBehaviour
 
         // Rotate the player body left and right (yaw)
         transform.Rotate(Vector3.up * mouseX);
+    }
+
+    void UpdateAnimations()
+    {
+        // Get movement input for forward/backward direction
+        float moveZ = Input.GetAxisRaw("Vertical");
+
+        // Set the 'speed' parameter to control the forward/backward animations
+        float speedValue = Mathf.Abs(moveZ); // Absolute value since speed can be negative for backward
+        animator.SetFloat("speed", speedValue);
+
+        // Set 'isRunning' based on whether Left Shift is pressed
+        animator.SetBool("isRunning", Input.GetKey(KeyCode.LeftShift));
+
+        // Handle forward or backward walking/running
+        if (moveZ > 0)
+        {
+            animator.SetBool("isWalkingForward", true);
+            animator.SetBool("isWalkingBackward", false);
+        }
+        else if (moveZ < 0)
+        {
+            animator.SetBool("isWalkingForward", false);
+            animator.SetBool("isWalkingBackward", true);
+        }
+        else
+        {
+            animator.SetBool("isWalkingForward", false);
+            animator.SetBool("isWalkingBackward", false);
+        }
+
+        // Handle jump animation
+        Debug.Log("isGrounded: " + isGrounded);
+        if (Input.GetKeyDown(KeyCode.Space) && isGrounded)
+        {
+            animator.SetBool("isJumping", true);
+        }
+                // Check if the player has landed (grounded again)
+        else if (!isGrounded && animator.GetBool("isJumping"))
+        {
+            // Reset the jump animation when player lands
+            animator.SetBool("isJumping", false);
+        }
     }
 }

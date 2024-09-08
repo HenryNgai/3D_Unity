@@ -310,17 +310,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 020303ebb4013a64c9ce0083ffc08246, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  speed: 3
+  walkSpeed: 3
+  runSpeed: 6
   jumpForce: 5
-  isJumping: 0
-  isGrounded: 0
   groundCheck: {fileID: 2043107890}
   groundDistance: 0.4
   groundMask:
     serializedVersion: 2
     m_Bits: 128
   mouseSensitivity: 200
-  playerBody: {fileID: 411915708}
+  cameraTransform: {fileID: 170138713}
 --- !u!1 &647033637
 GameObject:
   m_ObjectHideFlags: 0
