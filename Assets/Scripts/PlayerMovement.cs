@@ -1,96 +1,84 @@
 using UnityEngine;
 
-public class PlayerMovement : MonoBehaviour
+[RequireComponent(typeof(Rigidbody))]
+public class RPGPlayerMovement : MonoBehaviour
 {
-    // Movement variables
-    public float speed  = 3f; 
-    public float runSpeed = 6f;
+    // Movement settings
     public float walkSpeed = 3f;
-    public float jumpForce = 5f;
-    public bool isRunning = false;
+    public float runSpeed = 6f;
+    public float jumpForce = 7f;
 
-    // Attack variables
-    private bool isAttacking = false;
-
-    // Ground check variables
-    public bool isGrounded;
+    // Ground check settings
     public Transform groundCheck;
     public float groundDistance = 0.4f;
     public LayerMask groundMask;
 
-    // Camera and mouse look variables
-    public float mouseSensitivity = 200f;
-    public Transform playerBody;       // Reference to player's body for rotating
-    private float xRotation = 0f;
+    // Camera and player control settings
+    public float mouseSensitivity = 100f;
+    public Transform cameraTransform;  // Assign the camera's transform to this in the Inspector
 
-    // Physics Variables
     private Rigidbody rb;
-    
-    // Animation Variables
-    private Animator animator;
-    private AnimatorStateInfo stateInfo;
+    private bool isGrounded;
+    private float currentSpeed;
+    private float xRotation = 0f;
 
     void Start()
     {
         rb = GetComponent<Rigidbody>();
-        rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
-        
-        animator = GetComponent<Animator>();
+        rb.freezeRotation = true; // Prevent the Rigidbody from rotating
 
-        // Lock the cursor in the middle of the screen
+        // Lock the cursor to the center of the screen
         Cursor.lockState = CursorLockMode.Locked;
     }
 
     void Update()
-    {  
-        // Handle mouse input for rotating the camera and player body
+    {
+        // Handle camera and character rotation
         HandleMouseLook();
 
-        // Handles attacks
-        HandleAttack();
-
-        // Handles Movement
+        // Handle movement input
         HandleMovement();
 
-        // Handle animation updates
-        HandleAnimations();
+        // Handle jumping input
+        HandleJump();
     }
 
     void HandleMovement()
     {
-        // Get latest animation state
-        stateInfo = animator.GetCurrentAnimatorStateInfo(0);
-        if (stateInfo.IsName("attack"))
+        // Ground check
+        isGrounded = Physics.CheckSphere(groundCheck.position, groundDistance, groundMask);
+
+        // Get movement input
+        float moveX = Input.GetAxis("Horizontal");
+        float moveZ = Input.GetAxis("Vertical");
+
+        // Determine if the player is running or walking
+        if (Input.GetKey(KeyCode.LeftShift))
         {
-            Debug.Log("Skipping movement since we're still in attack animation");
+            currentSpeed = runSpeed;
         }
         else
         {
-            Debug.Log("Not attacking. Able to move character");
-            // Check if the player is grounded
-            isGrounded = Physics.CheckSphere(groundCheck.position, groundDistance, groundMask);
-
-            // Get input for movement
-            float moveX = Input.GetAxis("Horizontal");
-            float moveZ = Input.GetAxis("Vertical");
-            
-            // Calculating Running
-            if (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift))
-            {
-                isRunning = true;
-            }
-            else{
-                isRunning = false;
-            }
-            speed = isRunning ? runSpeed : walkSpeed;
-
-            // Move the player using MovePosition instead of directly modifying velocity
-            Vector3 move = transform.right * moveX + transform.forward * moveZ;
-            Vector3 targetPosition = rb.position + move * (isGrounded ? speed : speed * 0.5f) * Time.deltaTime;  // Move slower if not grounded
-            rb.MovePosition(targetPosition);
+            currentSpeed = walkSpeed;
         }
 
+        // Calculate movement direction
+        Vector3 moveDirection = transform.right * moveX + transform.forward * moveZ;
 
+        // Apply movement (only on the XZ plane)
+        Vector3 moveVelocity = moveDirection.normalized * currentSpeed;
+        Vector3 velocity = new Vector3(moveVelocity.x, rb.velocity.y, moveVelocity.z);
+
+        rb.velocity = velocity;
+    }
+
+    void HandleJump()
+    {
+        // Jump when space is pressed and the player is grounded
+        if (Input.GetKeyDown(KeyCode.Space) && isGrounded)
+        {
+            rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
+        }
     }
 
     void HandleMouseLook()
@@ -99,68 +87,12 @@ public class PlayerMovement : MonoBehaviour
         float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity * Time.deltaTime;
         float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity * Time.deltaTime;
 
-        // Rotate the head up and down (pitch)
+        // Rotate the camera up and down (pitch)
         xRotation -= mouseY;
-        xRotation = Mathf.Clamp(xRotation, -45f, 45f);  // Clamp rotation to avoid unnatural angles
+        xRotation = Mathf.Clamp(xRotation, -90f, 90f);  // Clamp rotation to avoid unnatural angles
+        cameraTransform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
 
         // Rotate the player body left and right (yaw)
-        playerBody.Rotate(Vector3.up * mouseX);
-    }
-
-    void HandleAnimations()
-    {
-        // Get input for movement
-        float moveX = Input.GetAxis("Horizontal");
-        float moveZ = Input.GetAxis("Vertical");
-
-        // Animate z (forward and backwards) correctly
-        if (moveZ > 0) // Moving Forward
-        {
-            animator.SetBool("isWalkingForward", true);
-            animator.SetBool("isWalkingBackward", false);
-        }
-        else if (moveZ < 0) // Moving Backwards
-        {
-            animator.SetBool("isWalkingForward", false);
-            animator.SetBool("isWalkingBackward", true);
-        }
-        else // Idle
-        {
-            animator.SetBool("isWalkingForward", false);
-            animator.SetBool("isWalkingBackward", false);
-        }
-
-        // Check Running
-        animator.SetBool("isRunning", isRunning);
-    }
-
-
-    void HandleAttack()
-    {   
-        if (Input.GetMouseButtonDown(0) && !isAttacking)
-        {
-            Attack();
-        }
-        HandleAttackCompletion();
-
-    }
-    void Attack(){
-        animator.SetTrigger("attack");
-        isAttacking = true;
-        Debug.Log("Attack triggered");
-    }
-
-    void HandleAttackCompletion(){
-        // Check if attack anim is still playing
-        stateInfo = animator.GetCurrentAnimatorStateInfo(0);
-
-        // Annimation is no longer attacking
-        if (isAttacking && !stateInfo.IsName("attack"))
-        {   //Reset to allow for attack again
-            isAttacking = false;
-            Debug.Log("Able to attack again");
-        }
-
-
+        transform.Rotate(Vector3.up * mouseX);
     }
 }
