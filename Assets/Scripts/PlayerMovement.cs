@@ -61,23 +61,27 @@ public class RPGPlayerMovement : MonoBehaviour
         float moveZ = Input.GetAxisRaw("Vertical");
 
         // Determine if the player is running or walking
-        if (Input.GetKey(KeyCode.LeftShift))
-        {
-            currentSpeed = runSpeed;
-        }
-        else
-        {
-            currentSpeed = walkSpeed;
-        }
+        bool isRunning = Input.GetKey(KeyCode.LeftShift);
+        
+        // Calculate target speed
+        float targetSpeed = isRunning ? runSpeed : walkSpeed;
 
-        // Calculate movement direction
-        Vector3 moveDirection = transform.right * moveX + transform.forward * moveZ;
+        // Normalize input to prevent faster diagonal movement
+        Vector3 inputDirection = new Vector3(moveX, 0f, moveZ).normalized;
+
+        // Calculate movement direction relative to the player's orientation
+        Vector3 moveDirection = transform.TransformDirection(inputDirection);
 
         // Apply movement (only on the XZ plane)
-        Vector3 moveVelocity = moveDirection.normalized * currentSpeed;
-        Vector3 velocity = new Vector3(moveVelocity.x, rb.velocity.y, moveVelocity.z);
+        Vector3 moveVelocity = moveDirection * targetSpeed;
 
+         // Update the Rigidbody's velocity, preserving Y-axis movement (gravity)
+        Vector3 velocity = new Vector3(moveVelocity.x, rb.velocity.y, moveVelocity.z);
         rb.velocity = velocity;
+
+        // Calculate currentSpeed for animation purposes
+        // This represents the speed in the forward/backward direction
+        currentSpeed = Vector3.Dot(moveDirection, transform.forward) * targetSpeed;
     }
 
     void HandleJump()
@@ -106,44 +110,18 @@ public class RPGPlayerMovement : MonoBehaviour
 
     void UpdateAnimations()
     {
-        // Get movement input for forward/backward direction
-        float moveZ = Input.GetAxisRaw("Vertical");
-
-        // Set the 'speed' parameter to control the forward/backward animations
-        float speedValue = Mathf.Abs(moveZ); // Absolute value since speed can be negative for backward
-        animator.SetFloat("speed", speedValue);
-
-        // Set 'isRunning' based on whether Left Shift is pressed
-        animator.SetBool("isRunning", Input.GetKey(KeyCode.LeftShift));
-
-        // Handle forward or backward walking/running
-        if (moveZ > 0)
-        {
-            animator.SetBool("isWalkingForward", true);
-            animator.SetBool("isWalkingBackward", false);
-        }
-        else if (moveZ < 0)
-        {
-            animator.SetBool("isWalkingForward", false);
-            animator.SetBool("isWalkingBackward", true);
-        }
-        else
-        {
-            animator.SetBool("isWalkingForward", false);
-            animator.SetBool("isWalkingBackward", false);
-        }
-
+        animator.SetFloat("speed", currentSpeed);
         // Handle jump animation
-        Debug.Log("isGrounded: " + isGrounded);
-        if (Input.GetKeyDown(KeyCode.Space) && isGrounded)
-        {
-            animator.SetBool("isJumping", true);
-        }
-                // Check if the player has landed (grounded again)
-        else if (!isGrounded && animator.GetBool("isJumping"))
-        {
-            // Reset the jump animation when player lands
-            animator.SetBool("isJumping", false);
-        }
+        // Debug.Log("isGrounded: " + isGrounded);
+        // if (Input.GetKeyDown(KeyCode.Space) && isGrounded)
+        // {
+        //     animator.SetBool("isJumping", true);
+        // }
+        //         // Check if the player has landed (grounded again)
+        // else if (!isGrounded && animator.GetBool("isJumping"))
+        // {
+        //     // Reset the jump animation when player lands
+        //     animator.SetBool("isJumping", false);
+        // }
     }
 }
