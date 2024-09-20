@@ -8,6 +8,8 @@ public class RPGPlayerMovement : MonoBehaviour
     public float runSpeed = 6f;
     public float jumpForce = 7f;
     private float currentSpeed;
+    private float currentStrafe;
+    private bool isJumping = false;
 
     // Ground check settings
     public Transform groundCheck;
@@ -82,6 +84,10 @@ public class RPGPlayerMovement : MonoBehaviour
         // Calculate currentSpeed for animation purposes
         // This represents the speed in the forward/backward direction
         currentSpeed = Vector3.Dot(moveDirection, transform.forward) * targetSpeed;
+
+        //Calculate the currentStrafe for animation purposes
+        // This repsents the strafing movement in the left/right direction
+        currentStrafe = Vector3.Dot(moveDirection, transform.right) * targetSpeed;
     }
 
     void HandleJump()
@@ -90,6 +96,10 @@ public class RPGPlayerMovement : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.Space) && isGrounded)
         {
             rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
+            isJumping = true;
+        }
+        else{
+            isJumping = false;
         }
     }
 
@@ -111,17 +121,8 @@ public class RPGPlayerMovement : MonoBehaviour
     void UpdateAnimations()
     {
         animator.SetFloat("speed", currentSpeed);
-        // Handle jump animation
-        // Debug.Log("isGrounded: " + isGrounded);
-        // if (Input.GetKeyDown(KeyCode.Space) && isGrounded)
-        // {
-        //     animator.SetBool("isJumping", true);
-        // }
-        //         // Check if the player has landed (grounded again)
-        // else if (!isGrounded && animator.GetBool("isJumping"))
-        // {
-        //     // Reset the jump animation when player lands
-        //     animator.SetBool("isJumping", false);
-        // }
+        animator.SetFloat("strafe",currentStrafe);
+        animator.SetBool("isJumping", isJumping);
+        animator.SetBool("isInAir", !isGrounded);
     }
 }
